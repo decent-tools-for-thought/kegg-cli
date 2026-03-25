@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from kegg_cli.client import BatchResponse
-from kegg_cli.core import _write_remote_result, main
+from kegg_cli.core import _write_remote_result, build_parser, main
 
 
 def test_cache_stats_command_outputs_json(
@@ -54,3 +54,20 @@ def test_write_remote_result_can_emit_raw_batches(capsys: pytest.CaptureFixture[
     captured = capsys.readouterr()
 
     assert "ENTRY       C00031" in captured.out
+
+
+def test_parser_reads_cache_defaults_from_xdg_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_path = tmp_path / "kegg-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        '[cache]\nmax_size_gb = 2.5\ndir = "/tmp/kegg-cache"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+    args = build_parser().parse_args(["info", "pathway"])
+
+    assert args.max_cache_size_gb == 2.5
+    assert args.cache_dir == Path("/tmp/kegg-cache")

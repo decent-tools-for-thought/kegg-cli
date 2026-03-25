@@ -5,15 +5,35 @@ import json
 import os
 import sqlite3
 import time
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 DEFAULT_CACHE_MAX_BYTES = 10 * 1024**3
+CACHE_DIR_ENV_VAR = "KEGG_CACHE_DIR"
+CACHE_MAX_BYTES_ENV_VAR = "KEGG_CACHE_MAX_BYTES"
+CONFIG_FILE_NAME = "config.toml"
+
+
+@dataclass(frozen=True)
+class CacheSettings:
+    cache_dir: Path
+    max_size_gb: float
+
+
+class ResponseCache(Protocol):
+    @staticmethod
+    def make_key(parts: Mapping[str, object]) -> str: ...
+
+    def get(self, cache_key: str) -> bytes | None: ...
+
+    def set(self, cache_key: str, payload: bytes, ttl_seconds: float | None = None) -> None: ...
 
 
 def default_cache_dir() -> Path:
-    override = os.environ.get("KEGG_CACHE_DIR")
+    override = os.environ.get(CACHE_DIR_ENV_VAR)
     if override:
         return Path(override).expanduser()
     xdg_cache_home = os.environ.get("XDG_CACHE_HOME")
@@ -22,11 +42,80 @@ def default_cache_dir() -> Path:
     return Path.home() / ".cache" / "kegg-cli"
 
 
+def default_config_path() -> Path:
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config_home:
+        return Path(xdg_config_home).expanduser() / "kegg-cli" / CONFIG_FILE_NAME
+    return Path.home() / ".config" / "kegg-cli" / CONFIG_FILE_NAME
+
+
+def load_cache_settings() -> CacheSettings:
+    raw_config = _load_config_file(default_config_path())
+    cache_config = raw_config.get("cache", {})
+    if not isinstance(cache_config, dict):
+        raise ValueError("config [cache] section must be a table")
+
+    config_dir = cache_config.get("dir")
+    if config_dir is not None and not isinstance(config_dir, str):
+        raise ValueError("config [cache].dir must be a string")
+
+    config_max_size_gb = cache_config.get("max_size_gb", DEFAULT_CACHE_MAX_BYTES / 1024**3)
+    if isinstance(config_max_size_gb, bool) or not isinstance(config_max_size_gb, (int, float)):
+        raise ValueError("config [cache].max_size_gb must be a number")
+
+    env_max_bytes = os.environ.get(CACHE_MAX_BYTES_ENV_VAR)
+    if env_max_bytes is not None:
+        max_size_gb = int(env_max_bytes) / 1024**3
+    else:
+        max_size_gb = float(config_max_size_gb)
+
+    cache_dir = default_cache_dir() if config_dir is None else Path(config_dir).expanduser()
+    return CacheSettings(cache_dir=cache_dir, max_size_gb=max_size_gb)
+
+
+def create_response_cache(root: Path, max_bytes: int) -> ResponseCache:
+    if max_bytes <= 0:
+        return DisabledCache(root=root, max_bytes=max_bytes)
+    return DiskLRUCache(root=root, max_bytes=max_bytes)
+
+
+def default_response_cache() -> ResponseCache:
+    max_bytes = int(os.environ.get(CACHE_MAX_BYTES_ENV_VAR, DEFAULT_CACHE_MAX_BYTES))
+    return create_response_cache(default_cache_dir(), max_bytes)
+
+
 @dataclass(frozen=True)
 class CacheStats:
     entries: int
     total_bytes: int
     max_bytes: int
+
+
+class DisabledCache:
+    def __init__(self, root: Path, max_bytes: int = 0) -> None:
+        self.root = root.expanduser()
+        self.max_bytes = max_bytes
+
+    @staticmethod
+    def make_key(parts: Mapping[str, object]) -> str:
+        return DiskLRUCache.make_key(parts)
+
+    def get(self, cache_key: str) -> bytes | None:
+        del cache_key
+        return None
+
+    def set(self, cache_key: str, payload: bytes, ttl_seconds: float | None = None) -> None:
+        del cache_key, payload, ttl_seconds
+
+    def clear(self) -> None:
+        return None
+
+    def prune(self, max_bytes: int | None = None) -> CacheStats:
+        effective_max_bytes = self.max_bytes if max_bytes is None else max_bytes
+        return CacheStats(entries=0, total_bytes=0, max_bytes=effective_max_bytes)
+
+    def stats(self) -> CacheStats:
+        return CacheStats(entries=0, total_bytes=0, max_bytes=self.max_bytes)
 
 
 class DiskLRUCache:
@@ -186,3 +275,13 @@ class DiskLRUCache:
                     parent.rmdir()
                 except OSError:
                     pass
+
+
+def _load_config_file(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    with path.open("rb") as handle:
+        data = tomllib.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"config file must contain a TOML table: {path}")
+    return data

@@ -6,57 +6,58 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .cache import DEFAULT_CACHE_MAX_BYTES, DiskLRUCache, default_cache_dir
+from .cache import CacheSettings, DiskLRUCache, create_response_cache, load_cache_settings
 from .client import DEFAULT_REQUESTS_PER_SECOND, BatchResponse, KeggClient, KeggCliError
 from .parser import parse_command_output
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(cache_settings: CacheSettings | None = None) -> argparse.ArgumentParser:
+    settings = load_cache_settings() if cache_settings is None else cache_settings
     parser = argparse.ArgumentParser(prog="kegg-cli")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     info_parser = subparsers.add_parser("info", help="Show KEGG database statistics")
     info_parser.add_argument("database")
-    _add_runtime_args(info_parser)
+    _add_runtime_args(info_parser, settings)
 
     find_parser = subparsers.add_parser("find", help="Search KEGG entries")
     find_parser.add_argument("database")
     find_parser.add_argument("query")
     find_parser.add_argument("--option")
-    _add_runtime_args(find_parser)
+    _add_runtime_args(find_parser, settings)
 
     list_parser = subparsers.add_parser(
         "list", help="List a KEGG database or organism-specific pathways"
     )
     list_parser.add_argument("database")
     list_parser.add_argument("--org")
-    _add_runtime_args(list_parser)
+    _add_runtime_args(list_parser, settings)
 
     list_entries_parser = subparsers.add_parser("list-entries", help="List selected KEGG entries")
     list_entries_parser.add_argument("entries", nargs="+")
-    _add_runtime_args(list_entries_parser)
+    _add_runtime_args(list_entries_parser, settings)
 
     get_parser = subparsers.add_parser("get", help="Retrieve KEGG entries")
     get_parser.add_argument("entries", nargs="+")
     get_parser.add_argument("--option")
-    _add_runtime_args(get_parser)
+    _add_runtime_args(get_parser, settings)
 
     link_parser = subparsers.add_parser("link", help="Link one KEGG database to another")
     link_parser.add_argument("target_db")
     link_parser.add_argument("source_db")
-    _add_runtime_args(link_parser)
+    _add_runtime_args(link_parser, settings)
 
     link_entries_parser = subparsers.add_parser(
         "link-entries", help="Link selected entries to a target database"
     )
     link_entries_parser.add_argument("target_db")
     link_entries_parser.add_argument("entries", nargs="+")
-    _add_runtime_args(link_entries_parser)
+    _add_runtime_args(link_entries_parser, settings)
 
     conv_parser = subparsers.add_parser("conv", help="Convert IDs using KEGG")
     conv_parser.add_argument("target_db")
     conv_parser.add_argument("source_db")
-    _add_runtime_args(conv_parser)
+    _add_runtime_args(conv_parser, settings)
 
     conv_entries_parser = subparsers.add_parser(
         "conv-entries",
@@ -64,29 +65,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     conv_entries_parser.add_argument("target_db")
     conv_entries_parser.add_argument("entries", nargs="+")
-    _add_runtime_args(conv_entries_parser)
+    _add_runtime_args(conv_entries_parser, settings)
 
     ddi_parser = subparsers.add_parser("ddi", help="Check KEGG drug-drug interactions")
     ddi_parser.add_argument("entries", nargs="+")
-    _add_runtime_args(ddi_parser)
+    _add_runtime_args(ddi_parser, settings)
 
     cache_parser = subparsers.add_parser("cache", help="Manage the KEGG response cache")
     cache_subparsers = cache_parser.add_subparsers(dest="cache_command", required=True)
 
     cache_stats = cache_subparsers.add_parser("stats", help="Show cache statistics")
-    _add_cache_only_args(cache_stats)
+    _add_cache_only_args(cache_stats, settings)
 
     cache_prune = cache_subparsers.add_parser("prune", help="Evict old cache entries")
-    _add_cache_only_args(cache_prune)
+    _add_cache_only_args(cache_prune, settings)
 
     cache_clear = cache_subparsers.add_parser("clear", help="Delete all cache entries")
-    _add_cache_only_args(cache_clear)
+    _add_cache_only_args(cache_clear, settings)
 
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
+    try:
+        cache_settings = load_cache_settings()
+    except ValueError as error:
+        sys.stderr.write(f"error: {error}\n")
+        return 2
+
+    parser = build_parser(cache_settings)
     args = parser.parse_args(argv)
 
     try:
@@ -99,13 +106,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_remote(args: argparse.Namespace) -> int:
-    cache = DiskLRUCache(root=args.cache_dir, max_bytes=_gigabytes_to_bytes(args.max_cache_size_gb))
+    max_bytes = _gigabytes_to_bytes(args.max_cache_size_gb)
+    cache = create_response_cache(root=args.cache_dir, max_bytes=max_bytes)
     with KeggClient(
         base_url=args.base_url,
         cache=cache,
         requests_per_second=args.requests_per_second,
     ) as client:
-        use_cache = not args.no_cache
+        use_cache = not args.no_cache and max_bytes > 0
         refresh = args.refresh
         if args.command == "info":
             text = client.info(args.database, use_cache=use_cache, refresh=refresh)
@@ -199,7 +207,7 @@ def _run_cache(args: argparse.Namespace) -> int:
     return 0
 
 
-def _add_runtime_args(parser: argparse.ArgumentParser) -> None:
+def _add_runtime_args(parser: argparse.ArgumentParser, settings: CacheSettings) -> None:
     parser.add_argument("--base-url", default=None)
     parser.add_argument(
         "--format",
@@ -207,11 +215,11 @@ def _add_runtime_args(parser: argparse.ArgumentParser) -> None:
         choices=["json", "raw"],
         default="json",
     )
-    parser.add_argument("--cache-dir", type=Path, default=default_cache_dir())
+    parser.add_argument("--cache-dir", type=Path, default=settings.cache_dir)
     parser.add_argument(
         "--max-cache-size-gb",
         type=float,
-        default=DEFAULT_CACHE_MAX_BYTES / 1024**3,
+        default=settings.max_size_gb,
     )
     parser.add_argument(
         "--requests-per-second",
@@ -222,12 +230,12 @@ def _add_runtime_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--refresh", action="store_true")
 
 
-def _add_cache_only_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--cache-dir", type=Path, default=default_cache_dir())
+def _add_cache_only_args(parser: argparse.ArgumentParser, settings: CacheSettings) -> None:
+    parser.add_argument("--cache-dir", type=Path, default=settings.cache_dir)
     parser.add_argument(
         "--max-size-gb",
         type=float,
-        default=DEFAULT_CACHE_MAX_BYTES / 1024**3,
+        default=settings.max_size_gb,
     )
 
 
@@ -272,6 +280,6 @@ def _is_probably_binary(content: bytes) -> bool:
 
 
 def _gigabytes_to_bytes(size_gb: float) -> int:
-    if size_gb <= 0:
-        raise KeggCliError("cache size must be positive")
+    if size_gb < 0:
+        raise KeggCliError("cache size must be non-negative")
     return int(size_gb * 1024**3)

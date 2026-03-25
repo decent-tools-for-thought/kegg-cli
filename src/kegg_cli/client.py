@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from .cache import DEFAULT_CACHE_MAX_BYTES, DiskLRUCache, default_cache_dir
+from .cache import ResponseCache, default_response_cache
 
 DEFAULT_BASE_URL = "https://rest.kegg.jp"
 DEFAULT_BATCH_SIZE = 10
@@ -41,7 +41,7 @@ class KeggClient:
         self,
         *,
         base_url: str | None = None,
-        cache: DiskLRUCache | None = None,
+        cache: ResponseCache | None = None,
         transport: httpx.BaseTransport | None = None,
         requests_per_second: float = DEFAULT_REQUESTS_PER_SECOND,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
@@ -50,10 +50,7 @@ class KeggClient:
         monotonic_fn: Callable[[], float] | None = None,
     ) -> None:
         self.base_url = (base_url or base_url_from_env() or DEFAULT_BASE_URL).rstrip("/")
-        self.cache = cache or DiskLRUCache(
-            root=default_cache_dir(),
-            max_bytes=int(os.environ.get("KEGG_CACHE_MAX_BYTES", DEFAULT_CACHE_MAX_BYTES)),
-        )
+        self.cache = cache or default_response_cache()
         self._http = httpx.Client(
             base_url=self.base_url,
             timeout=timeout_seconds,

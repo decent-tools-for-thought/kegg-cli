@@ -17,6 +17,7 @@ Command-line client for KEGG REST discovery, entry retrieval, identifier convers
 - [Install](#install)
 - [Functionality](#functionality)
 - [Configuration](#configuration)
+- [Config File](#config-file)
 - [Quick Start](#quick-start)
 - [Credits](#credits)
 
@@ -68,6 +69,18 @@ By default the CLI targets `https://rest.kegg.jp`, rate-limits itself to 3 reque
 - Use `--no-cache` or `--refresh` when you want live responses instead of cached ones.
 
 The main environment variables are `KEGG_API_BASE_URL`, `KEGG_CACHE_DIR`, `KEGG_CACHE_MAX_BYTES`, and `XDG_CACHE_HOME`.
+
+## Config File
+$$\color{#0EA5E9}Set \space \color{#14B8A6}Defaults$$
+
+The CLI reads optional defaults from `$XDG_CONFIG_HOME/kegg-cli/config.toml`, falling back to `~/.config/kegg-cli/config.toml`.
+
+Start from `config/default-config.toml` in this repo. The shipped default keeps KEGG caching enabled:
+
+```toml
+[cache]
+max_size_gb = 10.0
+```
 
 ## Quick Start
 $$\color{#0EA5E9}Try \space \color{#14B8A6}Browse$$
