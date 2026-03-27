@@ -17,7 +17,6 @@ Command-line client for KEGG REST discovery, entry retrieval, identifier convers
 - [Install](#install)
 - [Functionality](#functionality)
 - [Configuration](#configuration)
-- [Config File](#config-file)
 - [Quick Start](#quick-start)
 - [Credits](#credits)
 
@@ -70,7 +69,7 @@ By default the CLI targets `https://rest.kegg.jp`, rate-limits itself to 3 reque
 
 The main environment variables are `KEGG_API_BASE_URL`, `KEGG_CACHE_DIR`, `KEGG_CACHE_MAX_BYTES`, and `XDG_CACHE_HOME`.
 
-## Config File
+### Config File
 $$\color{#0EA5E9}Set \space \color{#14B8A6}Defaults$$
 
 The CLI reads optional defaults from `$XDG_CONFIG_HOME/kegg-cli/config.toml`, falling back to `~/.config/kegg-cli/config.toml`.
