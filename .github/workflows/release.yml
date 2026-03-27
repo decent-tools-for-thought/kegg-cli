@@ -29,8 +29,10 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install release validation tools
-        run: python -m pip install --upgrade pip build pytest
+      - name: Install release validation environment
+        run: |
+          python -m pip install --upgrade pip build pytest
+          python -m pip install -e .
 
       - name: Resolve release tag
         id: release_meta
