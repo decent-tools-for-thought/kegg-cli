@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install release validation tools
+        run: python -m pip install --upgrade pip build pytest
+
       - name: Resolve release tag
         id: release_meta
         run: |
@@ -46,9 +49,7 @@ jobs:
         run: python -m pytest
 
       - name: Build Python distributions
-        run: |
-          python -m pip install --upgrade build
-          python -m build
+        run: python -m build
 
       - name: Generate checksums
         run: sha256sum dist/* > dist/SHA256SUMS.txt
@@ -57,7 +58,7 @@ jobs:
         run: |
           python -m venv .venv-wheel
           .venv-wheel/bin/python -m pip install --upgrade pip
-          .venv-wheel/bin/python -m pip install --no-deps dist/*.whl
+          .venv-wheel/bin/python -m pip install dist/*.whl
           .venv-wheel/bin/python -c "import kegg_cli"
           .venv-wheel/bin/kegg-cli --help >/dev/null
 
