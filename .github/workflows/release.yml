@@ -29,10 +29,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install release validation environment
-        run: |
-          python -m pip install --upgrade pip build pytest
-          python -m pip install -e .
+      - uses: astral-sh/setup-uv@v6
 
       - name: Resolve release tag
         id: release_meta
@@ -47,30 +44,40 @@ jobs:
           test "$tag" = "v${version}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Install project dependencies
+        run: uv sync --group dev
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy src tests
+
       - name: Run unit tests
-        run: python -m pytest
+        run: uv run pytest
 
       - name: Build Python distributions
-        run: python -m build
+        run: uv build
 
       - name: Generate checksums
         run: sha256sum dist/* > dist/SHA256SUMS.txt
 
       - name: Verify wheel install
         run: |
-          python -m venv .venv-wheel
-          .venv-wheel/bin/python -m pip install --upgrade pip
-          .venv-wheel/bin/python -m pip install dist/*.whl
+          uv venv .venv-wheel
+          uv pip install --python .venv-wheel/bin/python dist/*.whl
           .venv-wheel/bin/python -c "import kegg_cli"
-          .venv-wheel/bin/kegg-cli --help >/dev/null
+          .venv-wheel/bin/kegg --help >/dev/null
 
       - name: Verify sdist install
         run: |
-          python -m venv .venv-sdist
-          .venv-sdist/bin/python -m pip install --upgrade pip setuptools wheel
-          .venv-sdist/bin/python -m pip install --no-build-isolation dist/*.tar.gz
+          uv venv .venv-sdist
+          uv pip install --python .venv-sdist/bin/python dist/*.tar.gz
           .venv-sdist/bin/python -c "import kegg_cli"
-          .venv-sdist/bin/kegg-cli --help >/dev/null
+          .venv-sdist/bin/kegg --help >/dev/null
 
       - uses: actions/upload-artifact@v4
         with:

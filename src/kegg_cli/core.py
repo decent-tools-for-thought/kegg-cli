@@ -13,7 +13,7 @@ from .parser import parse_command_output
 
 def build_parser(cache_settings: CacheSettings | None = None) -> argparse.ArgumentParser:
     settings = load_cache_settings() if cache_settings is None else cache_settings
-    parser = argparse.ArgumentParser(prog="kegg-cli")
+    parser = argparse.ArgumentParser(prog="kegg")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     info_parser = subparsers.add_parser("info", help="Show KEGG database statistics")

@@ -25,37 +25,37 @@ $$\color{#0EA5E9}Install \space \color{#14B8A6}Tool$$
 
 ```bash
 uv tool install .   # install the CLI
-kegg-cli --help     # inspect the command surface
+kegg --help     # inspect the command surface
 ```
 
 ## Functionality
 $$\color{#0EA5E9}Database \space \color{#14B8A6}Browse$$
-- `kegg-cli info <database>`: show KEGG database statistics.
-- `kegg-cli find <database> <query>`: search KEGG entries, optionally with KEGG `find` options.
-- `kegg-cli list <database>`: list a KEGG database or organism-specific pathways.
-- `kegg-cli list --org <code>`: filter pathway-style listings by organism code.
+- `kegg info <database>`: show KEGG database statistics.
+- `kegg find <database> <query>`: search KEGG entries, optionally with KEGG `find` options.
+- `kegg list <database>`: list a KEGG database or organism-specific pathways.
+- `kegg list --org <code>`: filter pathway-style listings by organism code.
 
 $$\color{#0EA5E9}Entry \space \color{#14B8A6}Fetch$$
-- `kegg-cli get <entry>...`: retrieve one or more KEGG entries.
-- `kegg-cli get --option <name>`: request alternate formats such as sequence-oriented output when supported upstream.
-- `kegg-cli list-entries <entry>...`: list selected entries directly.
+- `kegg get <entry>...`: retrieve one or more KEGG entries.
+- `kegg get --option <name>`: request alternate formats such as sequence-oriented output when supported upstream.
+- `kegg list-entries <entry>...`: list selected entries directly.
 
 $$\color{#0EA5E9}Link \space \color{#14B8A6}Convert$$
-- `kegg-cli link <target-db> <source-db>`: link one KEGG database to another.
-- `kegg-cli link-entries <target-db> <entry>...`: link selected entries to a target database.
-- `kegg-cli conv <target-db> <source-db>`: convert identifiers using KEGG.
-- `kegg-cli conv-entries <target-db> <entry>...`: convert selected entry identifiers.
-- `kegg-cli ddi <entry>...`: check KEGG drug-drug interaction data for one or more drug identifiers.
+- `kegg link <target-db> <source-db>`: link one KEGG database to another.
+- `kegg link-entries <target-db> <entry>...`: link selected entries to a target database.
+- `kegg conv <target-db> <source-db>`: convert identifiers using KEGG.
+- `kegg conv-entries <target-db> <entry>...`: convert selected entry identifiers.
+- `kegg ddi <entry>...`: check KEGG drug-drug interaction data for one or more drug identifiers.
 
 $$\color{#0EA5E9}Output \space \color{#14B8A6}Control$$
-- `kegg-cli --format json|raw`: switch between parsed JSON output and raw KEGG flat-file or tab-delimited responses.
+- `kegg --format json|raw`: switch between parsed JSON output and raw KEGG flat-file or tab-delimited responses.
 - The client chunks `get`, selected-entry `list`, selected-entry `link`, selected-entry `conv`, and multi-entry `ddi` calls into batches of at most 10 entries when required by KEGG.
 - The client rate-limits itself client-side and caches successful responses on disk.
 
 $$\color{#0EA5E9}Cache \space \color{#14B8A6}Control$$
-- `kegg-cli cache stats`: show cache size and entry counts.
-- `kegg-cli cache prune --max-size-gb <n>`: evict older cache entries until the cache fits the target cap.
-- `kegg-cli cache clear`: remove all cached responses.
+- `kegg cache stats`: show cache size and entry counts.
+- `kegg cache prune --max-size-gb <n>`: evict older cache entries until the cache fits the target cap.
+- `kegg cache clear`: remove all cached responses.
 
 ## Configuration
 $$\color{#0EA5E9}Tune \space \color{#14B8A6}Defaults$$
@@ -85,12 +85,12 @@ max_size_gb = 10.0
 $$\color{#0EA5E9}Try \space \color{#14B8A6}Browse$$
 
 ```bash
-kegg-cli info pathway                              # inspect a KEGG database
-kegg-cli find compound glucose                     # search compounds
-kegg-cli get C00031 C00022 C00024                 # fetch multiple entries
-kegg-cli list hsa                                  # list human gene entries
-kegg-cli link-entries pathway hsa:10458 ece:Z5100  # map selected entries into pathways
-kegg-cli ddi D00564 D00100 D00109                 # inspect drug-drug interaction output
+kegg info pathway                              # inspect a KEGG database
+kegg find compound glucose                     # search compounds
+kegg get C00031 C00022 C00024                 # fetch multiple entries
+kegg list hsa                                  # list human gene entries
+kegg link-entries pathway hsa:10458 ece:Z5100  # map selected entries into pathways
+kegg ddi D00564 D00100 D00109                 # inspect drug-drug interaction output
 ```
 
 ## Credits
