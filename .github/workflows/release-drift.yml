@@ -1,4 +1,4 @@
-name: Release Drift
+name: Package Drift
 
 on:
   schedule:
@@ -6,36 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  rebuild-and-verify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Run unit tests
-        run: python -m pytest
-
-      - name: Build Python distributions
-        run: |
-          python -m pip install --upgrade build
-          python -m build
-
-      - name: Verify wheel install
-        run: |
-          python -m venv .venv-wheel
-          .venv-wheel/bin/python -m pip install --upgrade pip
-          .venv-wheel/bin/python -m pip install --no-deps dist/*.whl
-          .venv-wheel/bin/python -c "import kegg_cli"
-          .venv-wheel/bin/kegg-cli --help >/dev/null
-
-      - name: Verify sdist install
-        run: |
-          python -m venv .venv-sdist
-          .venv-sdist/bin/python -m pip install --upgrade pip setuptools wheel
-          .venv-sdist/bin/python -m pip install --no-build-isolation dist/*.tar.gz
-          .venv-sdist/bin/python -c "import kegg_cli"
-          .venv-sdist/bin/kegg-cli --help >/dev/null
+  package-drift:
+    uses: decent-tools-for-thought/.github/.github/workflows/python-package-drift.yml@main
+    with:
+      package_import_name: kegg_cli
+      cli_command: kegg
+      run_tests: true
